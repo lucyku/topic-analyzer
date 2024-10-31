@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect } from 'react';
+import { User } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { 
   collection, 
@@ -10,9 +11,21 @@ import {
   getDocs,
 } from 'firebase/firestore';
 
+interface SearchHistoryItem {
+  id: string;
+  userId: string;
+  searchData: {
+    topic: string;
+    movie: string;
+    response: string;
+  };
+  timestamp: Date;
+  userEmail: string;
+}
+
 interface HistoryContextType {
-  searchHistory: any[];
-  fetchSearchHistory: () => Promise<void>;
+  searchHistory: SearchHistoryItem[];
+  fetchSearchHistory: (silent?: boolean) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -23,14 +36,13 @@ const HistoryContext = createContext<HistoryContextType>({
 });
 
 export function HistoryProvider({ children }: { children: React.ReactNode }) {
-  const [searchHistory, setSearchHistory] = useState<any[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchSearchHistory = async (silent = true) => {
     if (!user) return;
 
-    // Only show loading state on initial load, not during background updates
     if (!silent) setIsLoading(true);
 
     try {
@@ -45,9 +57,8 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
         id: doc.id,
         ...doc.data(),
         timestamp: doc.data().timestamp.toDate()
-      }));
+      })) as SearchHistoryItem[];
 
-      // Only update if there are actual changes
       if (JSON.stringify(newHistory) !== JSON.stringify(searchHistory)) {
         setSearchHistory(newHistory);
       }
@@ -58,12 +69,11 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Initial load
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (newUser) => {
       setUser(newUser);
       if (newUser) {
-        await fetchSearchHistory(false); // Show loading on initial load
+        await fetchSearchHistory(false);
       } else {
         setSearchHistory([]);
       }
@@ -72,13 +82,12 @@ export function HistoryProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // Background refresh
   useEffect(() => {
     if (!user) return;
 
     const interval = setInterval(() => {
-      fetchSearchHistory(true); // Silent refresh
-    }, 10000); // Every 10 seconds
+      fetchSearchHistory(true);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [user]);

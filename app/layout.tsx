@@ -1,30 +1,35 @@
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { Metadata } from "next"
-import ThemeProviderWrapper from '@/components/ThemeProviderWrapper'
-import { HistoryProvider } from '@/lib/HistoryContext'
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { HistoryProvider } from "@/lib/HistoryContext";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Movie Topic Analyzer",
-  description: "Discover how academic concepts appear in your favorite movies",
-}
+  title: "MovieConcepts",
+  description: "Analyze movie concepts",
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
-        <ThemeProviderWrapper>
+      <body className={inter.className}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <HistoryProvider>
             {children}
           </HistoryProvider>
-        </ThemeProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
