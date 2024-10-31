@@ -43,6 +43,7 @@ export default function Analyzer() {
   const [searchHistory, setSearchHistory] = useState<any[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   useEffect(() => {
     setMounted(true)
@@ -60,6 +61,7 @@ export default function Analyzer() {
       } else {
         setSearchHistory([]);
       }
+      setIsInitialLoad(false);
     });
     return () => unsubscribe();
   }, []);
@@ -100,7 +102,6 @@ export default function Analyzer() {
   const fetchSearchHistory = async () => {
     if (!user) return;
 
-    setHistoryLoading(true);
     try {
       const q = firestoreQuery(
         collection(db, 'searchHistory'),
@@ -115,16 +116,16 @@ export default function Analyzer() {
         timestamp: doc.data().timestamp.toDate()
       }));
 
-      setSearchHistory(history);
+      if (JSON.stringify(history) !== JSON.stringify(searchHistory)) {
+        setSearchHistory(history);
+      }
     } catch (error) {
       console.error('Error fetching history:', error);
-    } finally {
-      setHistoryLoading(false);
     }
   };
 
   const saveToHistory = async () => {
-    if (!user || !response) return;
+    if (!user || !response || !topic || !movie) return;
 
     try {
       const searchData = {
@@ -174,16 +175,14 @@ export default function Analyzer() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchSearchHistory();
-
+    if (user && !isInitialLoad) {
       const interval = setInterval(() => {
         fetchSearchHistory();
-      }, 5000);
+      }, 30000);
 
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, isInitialLoad]);
 
   const removeAnalysis = (index: number) => {
     const updatedAnalyses = savedAnalyses.filter((_, i) => i !== index)

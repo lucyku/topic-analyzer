@@ -25,6 +25,7 @@ import {
   getDocs,
 } from 'firebase/firestore'
 import { useRouter } from 'next/navigation'
+import { useHistory } from '@/lib/HistoryContext'
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
@@ -32,6 +33,7 @@ export default function Home() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
   const router = useRouter()
+  const { searchHistory: sharedHistory } = useHistory();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
