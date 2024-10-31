@@ -62,3 +62,14 @@
   max-width: 90vw !important;
   max-height: 80vh !important;
 }
+
+@media (max-width: 640px) {
+  .radix-dropdown-content {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    max-height: 80vh !important;
+    width: 90vw !important;
+  }
+}

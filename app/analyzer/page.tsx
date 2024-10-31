@@ -53,16 +53,16 @@ export default function Analyzer() {
   }, [])
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user)
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setUser(user);
       if (user) {
-        fetchSearchHistory()
+        await fetchSearchHistory();
       } else {
-        setSearchHistory([])
+        setSearchHistory([]);
       }
-    })
-    return () => unsubscribe()
-  }, [])
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -117,7 +117,7 @@ export default function Analyzer() {
 
       setSearchHistory(history);
     } catch (error) {
-      setError('Failed to fetch history');
+      console.error('Error fetching history:', error);
     } finally {
       setHistoryLoading(false);
     }
@@ -143,34 +143,47 @@ export default function Analyzer() {
       await addDoc(collection(db, 'searchHistory'), docData);
       await fetchSearchHistory();
     } catch (error) {
-      setError('Failed to save search');
+      console.error('Error saving history:', error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setResponse('')
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setResponse('');
 
     try {
       const data = {
         "user_id": "user123",
         "in-0": `${topic}\nmovie-${movie}`
-      }
+      };
       
-      const result = await query(data)
-      setResponse(result)
+      const result = await query(data);
+      setResponse(result);
 
       if (user && result) {
-        await saveToHistory()
+        await saveToHistory();
+        await fetchSearchHistory();
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchSearchHistory();
+
+      const interval = setInterval(() => {
+        fetchSearchHistory();
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const removeAnalysis = (index: number) => {
     const updatedAnalyses = savedAnalyses.filter((_, i) => i !== index)
@@ -215,7 +228,10 @@ export default function Analyzer() {
                   <span className="sr-only">Open menu</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[500px]">
+              <DropdownMenuContent 
+                align="end" 
+                className="w-[90vw] max-w-[500px] md:w-[500px]"
+              >
                 {user ? (
                   <>
                     <DropdownMenuItem disabled className="text-sm text-muted-foreground">
@@ -253,7 +269,7 @@ export default function Analyzer() {
                               </div>
                               
                               {expandedHistoryId === item.id && (
-                                <div className="mt-2 text-sm text-muted-foreground border-t pt-2 whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                                <div className="mt-2 text-sm text-muted-foreground border-t pt-2">
                                   <div className="flex justify-between items-center mb-2">
                                     <span className="font-medium">Response:</span>
                                     <Button 
@@ -269,7 +285,9 @@ export default function Analyzer() {
                                       <span className="sr-only">Minimize response</span>
                                     </Button>
                                   </div>
-                                  {item.searchData?.response}
+                                  <div className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words">
+                                    {item.searchData?.response}
+                                  </div>
                                 </div>
                               )}
                             </div>
