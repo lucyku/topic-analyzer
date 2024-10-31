@@ -679,6 +679,9 @@ video {
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
 }
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
 .mb-4 {
   margin-bottom: 1rem;
 }
@@ -711,9 +714,6 @@ video {
 }
 .mt-8 {
   margin-top: 2rem;
-}
-.mb-2 {
-  margin-bottom: 0.5rem;
 }
 .block {
   display: block;
@@ -754,6 +754,9 @@ video {
 .h-5 {
   height: 1.25rem;
 }
+.h-6 {
+  height: 1.5rem;
+}
 .h-9 {
   height: 2.25rem;
 }
@@ -762,9 +765,6 @@ video {
 }
 .h-screen {
   height: 100vh;
-}
-.h-6 {
-  height: 1.5rem;
 }
 .max-h-\[300px\] {
   max-height: 300px;

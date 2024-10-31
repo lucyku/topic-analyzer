@@ -54,18 +54,15 @@ export default function Analyzer() {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed:', user?.email)
       setUser(user)
+      if (user) {
+        fetchSearchHistory()
+      } else {
+        setSearchHistory([])
+      }
     })
     return () => unsubscribe()
   }, [])
-
-  useEffect(() => {
-    if (user) {
-      console.log('Fetching history for user:', user.email)
-      fetchSearchHistory()
-    }
-  }, [user])
 
   const handleSignOut = async () => {
     try {
@@ -101,55 +98,54 @@ export default function Analyzer() {
   }
 
   const fetchSearchHistory = async () => {
-    if (!user) return
+    if (!user) return;
 
+    setHistoryLoading(true);
     try {
-      setHistoryLoading(true)
-      console.log('Starting history fetch')
-
       const q = firestoreQuery(
         collection(db, 'searchHistory'),
         where('userId', '==', user.uid),
         orderBy('timestamp', 'desc')
-      )
+      );
 
-      const querySnapshot = await getDocs(q)
+      const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         timestamp: doc.data().timestamp.toDate()
-      }))
+      }));
 
-      console.log('Fetched history:', history)
-      setSearchHistory(history)
+      setSearchHistory(history);
     } catch (error) {
-      console.error('Error fetching history:', error)
+      setError('Failed to fetch history');
     } finally {
-      setHistoryLoading(false)
+      setHistoryLoading(false);
     }
-  }
+  };
 
   const saveToHistory = async () => {
-    if (!user || !response) return
+    if (!user || !response) return;
 
     try {
       const searchData = {
         topic,
         movie,
         response,
-      }
+      };
 
-      await addDoc(collection(db, 'searchHistory'), {
+      const docData = {
         userId: user.uid,
         searchData,
-        timestamp: Timestamp.now()
-      })
+        timestamp: Timestamp.now(),
+        userEmail: user.email
+      };
 
-      fetchSearchHistory()
+      await addDoc(collection(db, 'searchHistory'), docData);
+      await fetchSearchHistory();
     } catch (error) {
-      console.error('Error saving to history:', error)
+      setError('Failed to save search');
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -170,7 +166,6 @@ export default function Analyzer() {
         await saveToHistory()
       }
     } catch (error) {
-      console.error('Error:', error)
       setError(error instanceof Error ? error.message : 'An error occurred')
     } finally {
       setLoading(false)
