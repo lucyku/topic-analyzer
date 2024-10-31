@@ -54,17 +54,16 @@ export default function Analyzer() {
   }, [])
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      setUser(user);
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user)
       if (user) {
-        await fetchSearchHistory();
+        fetchSearchHistory()
       } else {
-        setSearchHistory([]);
+        setSearchHistory([])
       }
-      setIsInitialLoad(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    })
+    return () => unsubscribe()
+  }, [])
 
   const handleSignOut = async () => {
     try {
@@ -100,53 +99,50 @@ export default function Analyzer() {
   }
 
   const fetchSearchHistory = async () => {
-    if (!user) return;
+    if (!user) return
 
     try {
       const q = firestoreQuery(
         collection(db, 'searchHistory'),
         where('userId', '==', user.uid),
         orderBy('timestamp', 'desc')
-      );
+      )
 
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(q)
       const history = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         timestamp: doc.data().timestamp.toDate()
-      }));
+      }))
 
-      if (JSON.stringify(history) !== JSON.stringify(searchHistory)) {
-        setSearchHistory(history);
-      }
+      setSearchHistory(history)
     } catch (error) {
-      console.error('Error fetching history:', error);
+      console.error('Error fetching history:', error)
     }
-  };
+  }
 
   const saveToHistory = async () => {
-    if (!user || !response || !topic || !movie) return;
+    if (!user || !response) return
 
     try {
       const searchData = {
         topic,
         movie,
         response,
-      };
+      }
 
-      const docData = {
+      await addDoc(collection(db, 'searchHistory'), {
         userId: user.uid,
         searchData,
         timestamp: Timestamp.now(),
         userEmail: user.email
-      };
+      })
 
-      await addDoc(collection(db, 'searchHistory'), docData);
-      await fetchSearchHistory();
+      await fetchSearchHistory()
     } catch (error) {
-      console.error('Error saving history:', error);
+      console.error('Error saving history:', error)
     }
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
