@@ -42,40 +42,60 @@ export default function Analyzer() {
     setMounted(true)
   }, [])
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user)
-      if (user) {
-        fetchSearchHistory()
-      } else {
-        setSearchHistory([])
-      }
-    })
-    return () => unsubscribe()
-  }, [])
+  const fetchSearchHistory = async (silent = true) => {
+    if (!user) return;
 
-  const fetchSearchHistory = async () => {
-    if (!user) return
+    if (!silent) {
+      setHistoryLoading(true);
+    }
 
     try {
       const q = firestoreQuery(
         collection(db, 'searchHistory'),
         where('userId', '==', user.uid),
         orderBy('timestamp', 'desc')
-      )
+      );
 
-      const querySnapshot = await getDocs(q)
-      const history = querySnapshot.docs.map(doc => ({
+      const querySnapshot = await getDocs(q);
+      const newHistory = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         timestamp: doc.data().timestamp.toDate()
-      }))
+      }));
 
-      setSearchHistory(history)
+      if (JSON.stringify(newHistory) !== JSON.stringify(searchHistory)) {
+        setSearchHistory(newHistory);
+      }
     } catch (error) {
-      console.error('Error fetching history:', error)
+      console.error('Error fetching history:', error);
+    } finally {
+      if (!silent) {
+        setHistoryLoading(false);
+      }
     }
-  }
+  };
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setUser(user);
+      if (user) {
+        await fetchSearchHistory(false);
+      } else {
+        setSearchHistory([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      fetchSearchHistory(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const saveToHistory = async () => {
     if (!user || !response) return
@@ -133,5 +153,88 @@ export default function Analyzer() {
     }
   }
 
-  // ... rest of your component JSX ...
+  return (
+    <DropdownMenuContent align="end" className="w-[90vw] max-w-[500px] md:w-[500px]">
+      {user ? (
+        <>
+          <DropdownMenuItem disabled className="text-sm text-muted-foreground">
+            {user.email}
+          </DropdownMenuItem>
+          
+          <DropdownMenuSeparator />
+          
+          <DropdownMenuLabel>Search History</DropdownMenuLabel>
+          {historyLoading && searchHistory.length === 0 ? (
+            <DropdownMenuItem disabled>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading history...
+            </DropdownMenuItem>
+          ) : searchHistory.length > 0 ? (
+            searchHistory.map((item) => (
+              <div key={item.id} className="animate-none">
+                <DropdownMenuItem
+                  className="flex flex-col items-start cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!expandedHistoryId || expandedHistoryId !== item.id) {
+                      setExpandedHistoryId(item.id);
+                    }
+                  }}
+                >
+                  <div className="flex flex-col w-full">
+                    <div className="flex justify-between items-center w-full">
+                      <span className="font-medium">
+                        {item.searchData?.topic} in {item.searchData?.movie}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(item.timestamp).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    {expandedHistoryId === item.id && (
+                      <div className="mt-2 text-sm text-muted-foreground border-t pt-2">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">Response:</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedHistoryId(null);
+                            }}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                            <span className="sr-only">Minimize response</span>
+                          </Button>
+                        </div>
+                        <div className="max-h-[40vh] overflow-y-auto whitespace-pre-wrap break-words">
+                          {item.searchData?.response}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                {item !== searchHistory[searchHistory.length - 1] && (
+                  <DropdownMenuSeparator />
+                )}
+              </div>
+            ))
+          ) : (
+            <DropdownMenuItem disabled>
+              No search history
+            </DropdownMenuItem>
+          )}
+          
+          <DropdownMenuSeparator />
+          
+          <DropdownMenuItem onClick={handleSignOut}>
+            Sign Out
+          </DropdownMenuItem>
+        </>
+      ) : (
+        // ... login options remain the same ...
+      )}
+    </DropdownMenuContent>
+  );
 }
