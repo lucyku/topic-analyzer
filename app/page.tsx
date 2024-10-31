@@ -3,23 +3,170 @@
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { ArrowRight, BookOpen, Film, Sparkles } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
+import { auth } from '@/lib/firebase'
+import { useEffect, useState } from 'react'
+import { User } from 'firebase/auth'
+import { Menu, Loader2 } from "lucide-react"
+import { signOut } from 'firebase/auth'
+import { db } from '@/lib/firebase'
+import { 
+  collection, 
+  query as firestoreQuery,
+  where, 
+  orderBy, 
+  getDocs,
+} from 'firebase/firestore'
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
+  const [user, setUser] = useState<User | null>(null)
+  const [searchHistory, setSearchHistory] = useState<any[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user)
+      if (user) {
+        fetchSearchHistory()
+      } else {
+        setSearchHistory([])
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
+  const fetchSearchHistory = async () => {
+    if (!user) return
+
+    try {
+      setHistoryLoading(true)
+      const q = firestoreQuery(
+        collection(db, 'searchHistory'),
+        where('userId', '==', user.uid),
+        orderBy('timestamp', 'desc')
+      )
+
+      const querySnapshot = await getDocs(q)
+      const history = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp.toDate()
+      }))
+
+      setSearchHistory(history)
+    } catch (error) {
+      console.error('Error fetching history:', error)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Navigation */}
       <header className="border-b">
         <nav className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+          <Link href="/" className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
             MovieConcepts
-          </div>
+          </Link>
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>
               <Link href="/about">About</Link>
             </Button>
-            <Button asChild>
-              <Link href="/analyzer">Try Now</Link>
-            </Button>
+            
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Menu className="h-5 w-5" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[500px]">
+                  <DropdownMenuItem disabled className="text-sm text-muted-foreground">
+                    {user.email}
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuLabel>Search History</DropdownMenuLabel>
+                  {historyLoading ? (
+                    <DropdownMenuItem disabled>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading history...
+                    </DropdownMenuItem>
+                  ) : searchHistory.length > 0 ? (
+                    searchHistory.map((item) => (
+                      <div key={item.id}>
+                        <DropdownMenuItem
+                          className="flex flex-col items-start cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (!expandedHistoryId || expandedHistoryId !== item.id) {
+                              setExpandedHistoryId(item.id);
+                            }
+                            // Navigate to analyzer page with the selected search
+                            router.push('/analyzer');
+                          }}
+                        >
+                          <div className="flex flex-col w-full">
+                            <div className="flex justify-between items-center w-full">
+                              <span className="font-medium">
+                                {item.searchData?.topic} in {item.searchData?.movie}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(item.timestamp).toLocaleDateString()}
+                              </span>
+                            </div>
+                            
+                            {expandedHistoryId === item.id && (
+                              <div className="mt-2 text-sm text-muted-foreground border-t pt-2 whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                                {item.searchData?.response}
+                              </div>
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                        {item !== searchHistory[searchHistory.length - 1] && (
+                          <DropdownMenuSeparator />
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <DropdownMenuItem disabled>
+                      No search history
+                    </DropdownMenuItem>
+                  )}
+                  
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="ghost" asChild>
+                <Link href="/analyzer">Try Now</Link>
+              </Button>
+            )}
           </div>
         </nav>
       </header>
